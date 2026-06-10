@@ -23,8 +23,9 @@
   .conn.ok{color:var(--gold2);border-color:var(--gold)} .conn.ng{color:var(--red)}
 
   .price-box{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .sym-badge{font-size:18px;font-weight:700;color:#000;background:var(--gold);padding:3px 12px;border-radius:8px;letter-spacing:1px}
   #price{font-size:46px;font-weight:700;letter-spacing:1px;color:var(--gold2);
-         text-shadow:0 0 24px rgba(212,175,55,.35);transition:text-shadow .2s}
+         text-shadow:0 0 24px rgba(212,175,55,.35)}
   #price.up{color:var(--green)} #price.down{color:var(--red)}
   #change{font-size:16px;font-weight:600}
   .pos{color:var(--green)} .neg{color:var(--red)}
@@ -61,11 +62,27 @@
         border:1px dashed var(--border);border-radius:10px;font-size:12px}
   .gate .st{font-weight:700} .gate .st.open{color:var(--green)} .gate .st.closed{color:var(--red)}
 
+  /* ===== 市場スキャン ===== */
+  .scan-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);
+            border-radius:9px;margin-bottom:6px;cursor:pointer;background:var(--panel2);font-size:12px}
+  .scan-row:hover{border-color:var(--gold)}
+  .scan-row.top1{border-color:var(--gold);box-shadow:0 0 10px rgba(212,175,55,.25)}
+  .scan-row.cur{outline:1px solid var(--gold2)}
+  .scan-row .s-sym{font-weight:700;color:var(--gold2);width:70px;overflow:hidden;text-overflow:ellipsis}
+  .scan-row .s-chg{width:62px;text-align:right;font-variant-numeric:tabular-nums}
+  .scan-row .s-vote{flex:1;text-align:right;color:var(--dim)}
+  .chip{padding:1px 8px;border-radius:5px;font-size:11px;font-weight:700;color:#fff}
+  .chip.b{background:var(--green)} .chip.s{background:var(--red)} .chip.w{background:#3a2f12;color:var(--dim)} .chip.v{background:#555}
+  .scan-note{font-size:11px;color:var(--dim);margin-top:4px}
+
   /* ===== 右パネル ===== */
   .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #221b0a;font-size:14px}
   .stat:last-child{border-bottom:none}
   .stat .k{color:var(--dim)} .stat .v{font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold2)}
   .stat .v.pos{color:var(--green)} .stat .v.neg{color:var(--red)}
+  .hold-chip{display:inline-block;padding:2px 8px;margin:2px 3px 0 0;border:1px solid var(--border);
+             border-radius:6px;font-size:11px;color:var(--gold2);cursor:pointer}
+  .hold-chip:hover{border-color:var(--gold)}
 
   .switch-row{display:flex;justify-content:space-between;align-items:center;padding:12px;
               background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
@@ -112,14 +129,15 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">&#9818; AI評議会トレード<small>EIGHT SAGES COUNCIL &mdash; DEMO</small></div>
+    <div class="logo">&#9818; AI評議会トレード<small>EIGHT SAGES COUNCIL &mdash; DEMO v2</small></div>
     <div class="conn" id="conn">接続中...</div>
   </header>
 
   <div class="price-box">
+    <span class="sym-badge" id="symBadge">BTC</span>
     <div id="price">--,---</div>
     <div id="change">--%</div>
-    <div style="font-size:12px;color:var(--dim)">BTC円換算 &mdash; Binanceリアル価格 / 資金は仮想¥30,000</div>
+    <div style="font-size:12px;color:var(--dim)">円換算 &mdash; Binanceリアル価格 / 資金は仮想¥30,000</div>
   </div>
 
   <div class="grid">
@@ -141,7 +159,7 @@
       </div>
 
       <div class="panel">
-        <h2>BTC/USDT 1分足</h2>
+        <h2 id="chartTitle">BTC / USDT 1分足</h2>
         <canvas id="chart"></canvas>
       </div>
 
@@ -149,8 +167,8 @@
         <h2>取引履歴 (★=評議会判断)</h2>
         <div style="max-height:220px;overflow-y:auto">
           <table>
-            <thead><tr><th>時刻</th><th>売買</th><th>数量(BTC)</th><th>価格</th><th>損益</th></tr></thead>
-            <tbody id="history"><tr><td colspan="5" class="empty">まだ取引がありません</td></tr></tbody>
+            <thead><tr><th>時刻</th><th>銘柄</th><th>売買</th><th>数量</th><th>価格</th><th>損益</th></tr></thead>
+            <tbody id="history"><tr><td colspan="6" class="empty">まだ取引がありません</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -160,19 +178,26 @@
       <div class="switch-row">
         <div>
           <div class="lbl">自動運用</div>
-          <div class="sub">可決シグナルで自動執行(買:現金25% / 売:保有50%)</div>
+          <div class="sub">表示銘柄の可決で自動執行(買:現金25% / 売:保有50%)</div>
         </div>
         <div class="sw" id="autoSw"></div>
       </div>
 
       <div class="panel">
+        <h2>市場スキャン &mdash; 全コイン候補トップ10</h2>
+        <div id="scan"><div class="empty">スキャン中...</div></div>
+        <div class="scan-note">60秒ごとに全USDT銘柄(草コイン含む)を選考→上位10銘柄を評議会が面接。クリックで切替</div>
+      </div>
+
+      <div class="panel">
         <h2>口座状況</h2>
         <div class="stat"><span class="k">現金残高</span><span class="v" id="cash">¥30,000</span></div>
-        <div class="stat"><span class="k">BTC保有量</span><span class="v" id="btcQty">0.000000</span></div>
+        <div class="stat"><span class="k" id="posLabel">BTC保有量</span><span class="v" id="posQty">0</span></div>
         <div class="stat"><span class="k">平均取得単価</span><span class="v" id="avgPrice">--</span></div>
-        <div class="stat"><span class="k">評価損益</span><span class="v" id="unrealized">--</span></div>
+        <div class="stat"><span class="k">評価損益(表示銘柄)</span><span class="v" id="unrealized">--</span></div>
         <div class="stat"><span class="k">確定損益(累計)</span><span class="v" id="realized">¥0</span></div>
         <div class="stat"><span class="k">総資産</span><span class="v" id="equity">¥30,000</span></div>
+        <div id="holdings" style="margin-top:8px"></div>
       </div>
 
       <div class="panel">
@@ -199,25 +224,42 @@
 "use strict";
 // ================= 状態 =================
 const START_CASH = 30000; // 円
-let state = { cash: START_CASH, btc: 0, avg: 0, realized: 0, history: [], auto: false };
-let price = null, prevPrice = null, openPrice = null;
+let state = { cash: START_CASH, positions: {}, realized: 0, history: [], auto: false };
+let symbol = "BTCUSDT";
+let price = null, prevPrice = null, chg24 = null;
 let candles = [];
 let selPct = 25;
 let council = { votes: [], buy: 0, sell: 0, verdict: "wait", veto: false, vetoReason: "" };
 let lastAutoVerdict = "wait", lastAutoTime = 0;
-let fx = 155; // USD/JPY 換算レート(起動時に自動取得)
+let fx = 155;        // USD/JPY(起動時に自動取得)
+let lastPx = {};     // 銘柄→USD価格(スキャンで更新)
+let scanRows = [];
 
 try {
-  const saved = JSON.parse(localStorage.getItem("council_demo_jpy_v1"));
-  if (saved && typeof saved.cash === "number") state = Object.assign(state, saved);
+  const saved = JSON.parse(localStorage.getItem("council_demo_v2"));
+  if (saved && typeof saved.cash === "number" && saved.positions) state = Object.assign(state, saved);
 } catch(e) {}
-function save(){ try{ localStorage.setItem("council_demo_jpy_v1", JSON.stringify(state)); }catch(e){} }
+function save(){ try{ localStorage.setItem("council_demo_v2", JSON.stringify(state)); }catch(e){} }
 
 // ================= ユーティリティ =================
 const $ = id => document.getElementById(id);
-const fmt$ = n => (n<0?"-¥":"¥") + Math.abs(n).toLocaleString("ja-JP",{maximumFractionDigits:0});
-const fmtP = n => n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmtMan = n => (n/10000).toLocaleString("ja-JP",{maximumFractionDigits:1}) + "万";
+const dispSym = s => s.replace(/USDT$/,"");
+function fmtY(n){
+  const a = Math.abs(n), s = n<0 ? "-¥" : "¥";
+  if (a >= 100) return s + a.toLocaleString("ja-JP",{maximumFractionDigits:0});
+  if (a >= 1)   return s + a.toLocaleString("ja-JP",{maximumFractionDigits:2});
+  return s + a.toLocaleString("ja-JP",{maximumSignificantDigits:4});
+}
+function fmtAxis(n){
+  return n >= 10000 ? (n/10000).toLocaleString("ja-JP",{maximumFractionDigits:1})+"万"
+                    : n.toLocaleString("ja-JP",{maximumSignificantDigits:4});
+}
+function fmtQ(q){
+  if (q >= 1000) return q.toLocaleString("ja-JP",{maximumFractionDigits:0});
+  if (q >= 1)    return q.toLocaleString("ja-JP",{maximumFractionDigits:4});
+  return q.toFixed(6);
+}
+function getPos(sym){ return state.positions[sym] || {qty:0, avg:0}; }
 function toast(msg){
   const t = $("toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove("show"), 2400);
@@ -225,7 +267,6 @@ function toast(msg){
 function sma(arr, n){ if(arr.length<n) return null; let s=0; for(let i=arr.length-n;i<arr.length;i++) s+=arr[i]; return s/n; }
 
 // ================= 8人のAI分析官 =================
-// 各分析官: {name, role, judge(closes,vols,candles) => {vote:"buy"|"sell"|"wait", reason}}
 const AGENTS = [
   { name:"大局観の翁", role:"トレンド", judge:(c)=>{
       const m = sma(c,40); if(m===null) return wait();
@@ -297,7 +338,6 @@ const AGENTS = [
 ];
 function wait(){ return {vote:"wait", reason:"データ収集中"}; }
 
-// 門番(機械式veto): 急変動時は執行禁止
 function gatekeeper(k){
   if (k.length<6) return {veto:true, reason:"データ不足"};
   const last = k[k.length-1];
@@ -308,17 +348,20 @@ function gatekeeper(k){
   return {veto:false, reason:""};
 }
 
-// ================= 評議会の招集 =================
+function voteOn(k){
+  const closes = k.map(c=>c.c), vols = k.map(c=>c.v||0);
+  const votes = AGENTS.map(a => Object.assign({name:a.name, role:a.role}, a.judge(closes, vols, k)));
+  const buy  = votes.filter(x=>x.vote==="buy").length;
+  const sell = votes.filter(x=>x.vote==="sell").length;
+  const g = gatekeeper(k);
+  return { votes, buy, sell, veto:g.veto, vetoReason:g.reason,
+           verdict: g.veto ? "veto" : (buy>=5 ? "buy" : (sell>=5 ? "sell" : "wait")) };
+}
+
+// ================= 評議会(表示銘柄) =================
 function convene(){
   if (candles.length < 5) return;
-  const closes = candles.map(c=>c.c);
-  const vols = candles.map(c=>c.v||0);
-  council.votes = AGENTS.map(a => Object.assign({name:a.name, role:a.role}, a.judge(closes, vols, candles)));
-  council.buy  = council.votes.filter(x=>x.vote==="buy").length;
-  council.sell = council.votes.filter(x=>x.vote==="sell").length;
-  const g = gatekeeper(candles);
-  council.veto = g.veto; council.vetoReason = g.reason;
-  council.verdict = g.veto ? "veto" : (council.buy>=5 ? "buy" : (council.sell>=5 ? "sell" : "wait"));
+  council = voteOn(candles);
   renderCouncil();
   if (state.auto) autoExec();
 }
@@ -327,15 +370,90 @@ function autoExec(){
   const v = council.verdict;
   if (v !== "buy" && v !== "sell"){ lastAutoVerdict = v; return; }
   const now = Date.now();
-  if (v === lastAutoVerdict || now - lastAutoTime < 60000) return; // 同一シグナル連発・60秒以内は禁止
+  if (v === lastAutoVerdict || now - lastAutoTime < 60000) return;
   lastAutoVerdict = v; lastAutoTime = now;
   if (v === "buy"){
     const yen = state.cash * 0.25;
     if (yen >= 100) doBuy(yen, true);
   } else {
-    const qty = state.btc * 0.5;
+    const qty = getPos(symbol).qty * 0.5;
     if (qty > 0) doSell(qty, true);
   }
+}
+
+// ================= 市場スキャン =================
+const EXCLUDE_BASE = ["USDC","FDUSD","TUSD","DAI","BUSD","USDP","EUR","EURI","AEUR","GBP","AUD","TRY","BRL","ARS","JPY","MXN","COP","CZK","PLN","RON","UAH","ZAR","XUSD","USD1"];
+async function scanMarket(){
+  try{
+    const r = await fetch("https://api.binance.com/api/v3/ticker/24hr");
+    const all = await r.json();
+    if (!Array.isArray(all)) return;
+    const cands = [];
+    for (const t of all){
+      if (!t.symbol.endsWith("USDT")) continue;
+      const base = t.symbol.slice(0,-4);
+      if (EXCLUDE_BASE.includes(base)) continue;
+      if (/UP$|DOWN$|BULL$|BEAR$/.test(base)) continue;
+      const qv = +t.quoteVolume;
+      if (qv < 2e6) continue; // 出来高が薄すぎる銘柄は除外
+      lastPx[t.symbol] = +t.lastPrice;
+      cands.push({sym:t.symbol, chg:+t.priceChangePercent, score: Math.abs(+t.priceChangePercent) * Math.log10(qv)});
+      if (t.symbol === symbol) chg24 = +t.priceChangePercent;
+    }
+    const top = cands.sort((a,b)=>b.score-a.score).slice(0,10);
+    const rows = await Promise.all(top.map(async t=>{
+      try{
+        const kr = await fetch(`https://api.binance.com/api/v3/klines?symbol=${t.sym}&interval=1m&limit=60`);
+        const ks = await kr.json();
+        const k = ks.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}));
+        const v = voteOn(k);
+        return {sym:t.sym, chg:t.chg, buy:v.buy, sell:v.sell, verdict:v.verdict};
+      }catch(e){ return {sym:t.sym, chg:t.chg, buy:0, sell:0, verdict:"wait"}; }
+    }));
+    rows.sort((a,b)=> (b.buy-b.sell)-(a.buy-a.sell) || Math.abs(b.chg)-Math.abs(a.chg));
+    scanRows = rows;
+    renderScan(); render();
+  }catch(e){ /* 次の周期で再試行 */ }
+}
+setInterval(scanMarket, 60000);
+
+function renderScan(){
+  const box = $("scan");
+  if (!scanRows.length){ box.innerHTML = '<div class="empty">スキャン中...</div>'; return; }
+  box.innerHTML = scanRows.map((r,i)=>{
+    const chip = r.verdict==="buy" ? '<span class="chip b">買い可決</span>'
+               : r.verdict==="sell" ? '<span class="chip s">売り可決</span>'
+               : r.verdict==="veto" ? '<span class="chip v">veto</span>'
+               : '<span class="chip w">様子見</span>';
+    return `<div class="scan-row ${i===0?"top1":""} ${r.sym===symbol?"cur":""}" data-sym="${r.sym}">
+      <span class="s-sym">${dispSym(r.sym)}</span>
+      <span class="s-chg ${r.chg>=0?"pos":"neg"}">${r.chg>=0?"+":""}${r.chg.toFixed(1)}%</span>
+      <span class="s-vote">買${r.buy}/売${r.sell}</span>
+      ${chip}
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".scan-row").forEach(el=>{
+    el.onclick = ()=> setSymbol(el.dataset.sym);
+  });
+}
+
+// ================= 銘柄切替 =================
+async function setSymbol(sym){
+  if (sym === symbol) return;
+  symbol = sym;
+  candles = []; price = null; prevPrice = null; chg24 = null;
+  council = { votes:[], buy:0, sell:0, verdict:"wait", veto:false, vetoReason:"" };
+  lastAutoVerdict = "wait";
+  $("symBadge").textContent = dispSym(sym);
+  $("chartTitle").textContent = dispSym(sym) + " / USDT 1分足";
+  $("posLabel").textContent = dispSym(sym) + "保有量";
+  $("vText").textContent = "評議会 招集中...";
+  $("price").textContent = "--,---";
+  stopWS(); stopPolling();
+  await loadInitial();
+  startWS();
+  renderScan(); render();
+  toast(dispSym(sym) + " に切替えました");
 }
 
 // ================= 売買 =================
@@ -346,26 +464,31 @@ function nowStr(){
 }
 function doBuy(yen, ai){
   if (!price || yen > state.cash + 1e-9 || yen < 100) return false;
-  const pj = price * fx; // BTC1枚の円価格
+  const pj = price * fx;
   const qty = yen / pj;
-  state.avg = state.btc > 0 ? (state.avg*state.btc + yen)/(state.btc+qty) : pj;
-  state.btc += qty; state.cash -= yen;
-  state.history.push({time:nowStr(), side:"買", qty, price:pj, pnl:null, ai:!!ai});
+  const pos = getPos(symbol);
+  const nq = pos.qty + qty;
+  state.positions[symbol] = { qty: nq, avg: pos.qty > 0 ? (pos.avg*pos.qty + yen)/nq : pj };
+  state.cash -= yen;
+  state.history.push({time:nowStr(), sym:symbol, side:"買", qty, price:pj, pnl:null, ai:!!ai});
   save(); render(); renderHistory();
-  toast((ai?"★評議会 ":"")+`買い約定: ${qty.toFixed(6)} BTC @ ${fmt$(pj)}`);
+  toast((ai?"★評議会 ":"")+`${dispSym(symbol)} 買い約定 @ ${fmtY(pj)}`);
   return true;
 }
 function doSell(qty, ai){
-  if (!price || state.btc <= 0) return false;
-  if (qty > state.btc) qty = state.btc;
+  const pos = getPos(symbol);
+  if (!price || pos.qty <= 0) return false;
+  if (qty > pos.qty) qty = pos.qty;
   if (qty <= 0) return false;
   const pj = price * fx;
-  const pnl = (pj - state.avg) * qty;
-  state.realized += pnl; state.cash += qty*pj; state.btc -= qty;
-  if (state.btc < 1e-9){ state.btc = 0; state.avg = 0; }
-  state.history.push({time:nowStr(), side:"売", qty, price:pj, pnl, ai:!!ai});
+  const pnl = (pj - pos.avg) * qty;
+  state.realized += pnl; state.cash += qty * pj;
+  const nq = pos.qty - qty;
+  if (nq < 1e-12) delete state.positions[symbol];
+  else state.positions[symbol] = { qty: nq, avg: pos.avg };
+  state.history.push({time:nowStr(), sym:symbol, side:"売", qty, price:pj, pnl, ai:!!ai});
   save(); render(); renderHistory();
-  toast((ai?"★評議会 ":"")+`売り約定 @ ${fmt$(pj)} (損益 ${pnl>=0?"+":""}${fmt$(pnl)})`);
+  toast((ai?"★評議会 ":"")+`${dispSym(symbol)} 売り約定 @ ${fmtY(pj)} (損益 ${pnl>=0?"+":""}${fmtY(pnl)})`);
   return true;
 }
 
@@ -374,25 +497,25 @@ $("buyBtn").onclick = () => {
   if (!doBuy(yen, false)) toast("現金が足りません(最低¥100)");
 };
 $("sellBtn").onclick = () => {
-  const qty = state.btc * selPct/100;
-  if (!doSell(qty, false)) toast("保有BTCがありません");
+  const qty = getPos(symbol).qty * selPct/100;
+  if (!doSell(qty, false)) toast("この銘柄の保有がありません");
 };
 $("followBtn").onclick = () => {
   if (council.verdict === "buy") doBuy(state.cash*0.25, true);
-  else if (council.verdict === "sell") doSell(state.btc*0.5, true);
+  else if (council.verdict === "sell") doSell(getPos(symbol).qty*0.5, true);
 };
 $("resetBtn").onclick = () => {
   if (!confirm("口座をリセットして ¥30,000 に戻します。よろしいですか?")) return;
   const auto = state.auto;
-  state = { cash: START_CASH, btc: 0, avg: 0, realized: 0, history: [], auto };
+  state = { cash: START_CASH, positions: {}, realized: 0, history: [], auto };
   save(); render(); renderHistory(); toast("リセットしました");
 };
 $("autoSw").onclick = () => {
   state.auto = !state.auto;
   $("autoSw").classList.toggle("on", state.auto);
-  lastAutoVerdict = council.verdict; // ON直後の即発注を防ぐ
+  lastAutoVerdict = council.verdict;
   save();
-  toast(state.auto ? "自動運用 ON — 評議会が可決したら自動執行します" : "自動運用 OFF");
+  toast(state.auto ? "自動運用 ON — 表示銘柄の可決で自動執行します" : "自動運用 OFF");
 };
 document.querySelectorAll(".qty-row button").forEach(b => {
   b.onclick = () => {
@@ -403,32 +526,45 @@ document.querySelectorAll(".qty-row button").forEach(b => {
 document.querySelector('.qty-row button[data-pct="25"]').classList.add("sel");
 
 // ================= 画面更新 =================
+function equity(){
+  let e = state.cash;
+  for (const [s,p] of Object.entries(state.positions)){
+    const px = (s === symbol && price) ? price : (lastPx[s] || 0);
+    e += p.qty * px * fx;
+  }
+  return e;
+}
 function render(){
   if (price !== null){
-    const el = $("price"); el.textContent = fmt$(price*fx);
+    const el = $("price"); el.textContent = fmtY(price*fx);
     if (prevPrice !== null && price !== prevPrice) el.className = price > prevPrice ? "up" : "down";
-    if (openPrice){
-      const ch = (price-openPrice)/openPrice*100;
-      const c = $("change");
-      c.textContent = (ch>=0?"+":"")+ch.toFixed(2)+"% (24h)";
-      c.className = ch>=0?"pos":"neg";
-    }
   }
-  $("cash").textContent = fmt$(state.cash);
-  $("btcQty").textContent = state.btc.toFixed(6);
-  $("avgPrice").textContent = state.btc>0 ? fmt$(state.avg) : "--";
-  $("realized").textContent = fmt$(state.realized);
+  if (chg24 !== null){
+    const c = $("change");
+    c.textContent = (chg24>=0?"+":"")+chg24.toFixed(2)+"% (24h)";
+    c.className = chg24>=0?"pos":"neg";
+  }
+  const pos = getPos(symbol);
+  $("cash").textContent = fmtY(state.cash);
+  $("posQty").textContent = pos.qty > 0 ? fmtQ(pos.qty) : "0";
+  $("avgPrice").textContent = pos.qty > 0 ? fmtY(pos.avg) : "--";
+  $("realized").textContent = fmtY(state.realized);
   $("realized").className = "v " + (state.realized>=0?"pos":"neg");
-  if (state.btc>0 && price){
-    const u = (price*fx-state.avg)*state.btc;
-    $("unrealized").textContent = (u>=0?"+":"")+fmt$(u);
+  if (pos.qty > 0 && price){
+    const u = (price*fx - pos.avg) * pos.qty;
+    $("unrealized").textContent = (u>=0?"+":"")+fmtY(u);
     $("unrealized").className = "v " + (u>=0?"pos":"neg");
   } else { $("unrealized").textContent="--"; $("unrealized").className="v"; }
-  const eq = state.cash + (price ? state.btc*price*fx : 0);
-  $("equity").textContent = fmt$(eq);
+  const eq = equity();
+  $("equity").textContent = fmtY(eq);
   $("equity").className = "v " + (eq>=START_CASH?"pos":"neg");
+  const syms = Object.keys(state.positions);
+  $("holdings").innerHTML = syms.length
+    ? "保有: " + syms.map(s=>`<span class="hold-chip" data-sym="${s}">${dispSym(s)} ${fmtQ(state.positions[s].qty)}</span>`).join("")
+    : "";
+  document.querySelectorAll(".hold-chip").forEach(el=>{ el.onclick=()=>setSymbol(el.dataset.sym); });
   $("buyBtn").disabled = !price;
-  $("sellBtn").disabled = !price || state.btc<=0;
+  $("sellBtn").disabled = !price || pos.qty<=0;
   $("autoSw").classList.toggle("on", state.auto);
 }
 
@@ -450,20 +586,21 @@ function renderCouncil(){
     sub.textContent = council.vetoReason + " のため見送り";
   } else if (council.verdict === "buy"){
     vd.classList.add("buy"); light.textContent = "買";
-    txt.textContent = `買いシグナル可決 (${council.buy}/8票)`;
+    txt.textContent = `${dispSym(symbol)} 買いシグナル可決 (${council.buy}/8票)`;
     sub.textContent = "評議会は買いを支持しています";
   } else if (council.verdict === "sell"){
     vd.classList.add("sell"); light.textContent = "売";
-    txt.textContent = `売りシグナル可決 (${council.sell}/8票)`;
+    txt.textContent = `${dispSym(symbol)} 売りシグナル可決 (${council.sell}/8票)`;
     sub.textContent = "評議会は売りを支持しています";
   } else {
     light.textContent = "待";
-    txt.textContent = `様子見 (買${council.buy} / 売${council.sell} / 棄権${8-council.buy-council.sell})`;
+    txt.textContent = `${dispSym(symbol)} 様子見 (買${council.buy} / 売${council.sell} / 棄権${8-council.buy-council.sell})`;
     sub.textContent = "5票に届かず — 合意なし";
   }
   $("gate").textContent = council.veto ? "遮断中" : "開門";
   $("gate").className = "st " + (council.veto ? "closed" : "open");
-  $("followBtn").disabled = !(council.verdict==="buy" || (council.verdict==="sell" && state.btc>0));
+  const pos = getPos(symbol);
+  $("followBtn").disabled = !(council.verdict==="buy" || (council.verdict==="sell" && pos.qty>0));
   $("followBtn").textContent =
     council.verdict==="buy" ? "評議会に従う → 現金の25%で買う" :
     council.verdict==="sell" ? "評議会に従う → 保有の50%を売る" : "評議会の判断に従う(可決待ち)";
@@ -472,15 +609,16 @@ function renderCouncil(){
 function renderHistory(){
   const tb = $("history");
   if (!state.history.length){
-    tb.innerHTML = '<tr><td colspan="5" class="empty">まだ取引がありません</td></tr>'; return;
+    tb.innerHTML = '<tr><td colspan="6" class="empty">まだ取引がありません</td></tr>'; return;
   }
   tb.innerHTML = state.history.slice().reverse().map(h => `
     <tr>
       <td>${h.ai?'<span class="ai-mark">★</span>':""}${h.time}</td>
+      <td>${dispSym(h.sym||"BTCUSDT")}</td>
       <td><span class="tag ${h.side==="買"?"b":"s"}">${h.side}</span></td>
-      <td>${h.qty.toFixed(6)}</td>
-      <td>${fmt$(h.price)}</td>
-      <td class="${h.pnl===null?"":(h.pnl>=0?"pos":"neg")}">${h.pnl===null?"--":(h.pnl>=0?"+":"")+fmt$(h.pnl)}</td>
+      <td>${fmtQ(h.qty)}</td>
+      <td>${fmtY(h.price)}</td>
+      <td class="${h.pnl===null?"":(h.pnl>=0?"pos":"neg")}">${h.pnl===null?"--":(h.pnl>=0?"+":"")+fmtY(h.pnl)}</td>
     </tr>`).join("");
 }
 
@@ -494,7 +632,7 @@ function drawChart(){
   ctx.clearRect(0,0,W,H);
   if (candles.length<2) return;
   const view = candles.slice(-70);
-  const padR=64, padT=14, padB=10;
+  const padR=70, padT=14, padB=10;
   let lo=Infinity, hi=-Infinity;
   view.forEach(c=>{lo=Math.min(lo,c.l);hi=Math.max(hi,c.h);});
   const range=(hi-lo)||1;
@@ -504,7 +642,7 @@ function drawChart(){
   for(let i=0;i<=4;i++){
     const p=hi-range*i/4, yy=y(p);
     ctx.strokeStyle="#1d1708"; ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke();
-    ctx.fillStyle="#8a7a45"; ctx.fillText(fmtMan(p*fx), W-padR+6, yy+4);
+    ctx.fillStyle="#8a7a45"; ctx.fillText(fmtAxis(p*fx), W-padR+6, yy+4);
   }
   view.forEach((c,i)=>{
     const x=i*cw+cw/2, up=c.c>=c.o;
@@ -517,10 +655,11 @@ function drawChart(){
     const yy=y(Math.min(Math.max(price,lo),hi));
     ctx.strokeStyle="#d4af37"; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle="#f5d878"; ctx.fillText(fmtMan(price*fx), W-padR+6, yy-6);
+    ctx.fillStyle="#f5d878"; ctx.fillText(fmtAxis(price*fx), W-padR+6, yy-6);
   }
-  if (state.btc>0 && state.avg/fx>=lo && state.avg/fx<=hi){
-    const yy=y(state.avg/fx);
+  const pos = getPos(symbol);
+  if (pos.qty>0 && pos.avg/fx>=lo && pos.avg/fx<=hi){
+    const yy=y(pos.avg/fx);
     ctx.strokeStyle="#3b82f6"; ctx.setLineDash([2,4]);
     ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); ctx.setLineDash([]);
   }
@@ -536,58 +675,64 @@ async function loadFx(){
     const r = await fetch("https://open.er-api.com/v6/latest/USD");
     const d = await r.json();
     if (d && d.rates && d.rates.JPY > 0) fx = d.rates.JPY;
-  }catch(e){ /* 取得失敗時は155円固定のまま */ }
+  }catch(e){ /* 失敗時は155円固定 */ }
   render(); drawChart();
 }
-setInterval(loadFx, 3600000); // 1時間ごとに更新
+setInterval(loadFx, 3600000);
 
 async function loadInitial(){
   try{
     const [kr,tr] = await Promise.all([
-      fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120"),
-      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT")
+      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=120`),
+      fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`)
     ]);
     const ks=await kr.json(), t=await tr.json();
     candles = ks.map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
-    openPrice=+t.openPrice; price=+t.lastPrice;
+    chg24 = +t.priceChangePercent;
+    price = +t.lastPrice;
+    lastPx[symbol] = price;
     render(); drawChart(); convene();
   }catch(e){ setConn(false,"初期データ取得失敗 — 再試行中"); setTimeout(loadInitial,5000); }
 }
 
 let ws=null, pollTimer=null, lastConvene=0;
+function stopWS(){ if(ws){ try{ws.onclose=null;ws.onerror=null;ws.onmessage=null;ws.close();}catch(e){} ws=null; } }
 function startWS(){
-  try{ ws=new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@kline_1m"); }
+  const sym = symbol;
+  try{ ws=new WebSocket(`wss://stream.binance.com:9443/ws/${sym.toLowerCase()}@kline_1m`); }
   catch(e){ startPolling(); return; }
   ws.onopen=()=>{ setConn(true,"● ライブ接続中"); stopPolling(); };
   ws.onmessage=ev=>{
+    if (sym !== symbol) return; // 切替後の古い配信は無視
     const m=JSON.parse(ev.data); if(!m.k) return;
     const k=m.k;
-    prevPrice=price; price=+k.c;
+    prevPrice=price; price=+k.c; lastPx[symbol]=price;
     const nc={t:k.t,o:+k.o,h:+k.h,l:+k.l,c:+k.c,v:+k.v};
     if(candles.length && candles[candles.length-1].t===k.t) candles[candles.length-1]=nc;
     else { candles.push(nc); if(candles.length>300) candles.shift(); }
     render(); drawChart();
     const now=Date.now();
-    if (now-lastConvene>5000){ lastConvene=now; convene(); } // 5秒ごとに評議会再招集
+    if (now-lastConvene>5000){ lastConvene=now; convene(); }
   };
   ws.onclose=ws.onerror=()=>{
+    if (sym !== symbol) return;
     setConn(false,"再接続中...");
     startPolling();
-    setTimeout(startWS,5000);
+    setTimeout(()=>{ if(sym===symbol) startWS(); },5000);
   };
 }
 function startPolling(){
   if(pollTimer) return;
   pollTimer=setInterval(async()=>{
     try{
-      const r=await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=2");
+      const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=2`);
       const ks=await r.json();
       ks.forEach(k=>{
         const nc={t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]};
         if(candles.length && candles[candles.length-1].t===nc.t) candles[candles.length-1]=nc;
         else if(!candles.length || nc.t>candles[candles.length-1].t){ candles.push(nc); if(candles.length>300) candles.shift(); }
       });
-      prevPrice=price; price=candles[candles.length-1].c;
+      if (candles.length){ prevPrice=price; price=candles[candles.length-1].c; lastPx[symbol]=price; }
       setConn(true,"● 接続中(3秒更新)");
       render(); drawChart(); convene();
     }catch(e){ setConn(false,"接続できません"); }
@@ -595,17 +740,10 @@ function startPolling(){
 }
 function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
 
-setInterval(async()=>{
-  try{
-    const r=await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT");
-    const t=await r.json(); openPrice=+t.openPrice;
-  }catch(e){}
-},60000);
-
 // ================= 起動 =================
 render(); renderHistory();
 loadFx();
-loadInitial().then(startWS);
+loadInitial().then(()=>{ startWS(); scanMarket(); });
 </script>
 </body>
 </html>
