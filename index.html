@@ -234,6 +234,7 @@ let lastAutoVerdict = "wait", lastAutoTime = 0;
 let fx = 155;        // USD/JPY(起動時に自動取得)
 let lastPx = {};     // 銘柄→USD価格(スキャンで更新)
 let scanRows = [];
+let sonnet = null;   // 執事(Sonnet)の最新判定
 
 try {
   const saved = JSON.parse(localStorage.getItem("council_demo_v2"));
@@ -361,10 +362,33 @@ function voteOn(k){
 // ================= 評議会(表示銘柄) =================
 function convene(){
   if (candles.length < 5) return;
-  council = voteOn(candles);
+  const sj = sonnet && sonnet.symbols && sonnet.symbols[symbol];
+  const fresh = sj && (Date.now() - sonnet.ts < 6*60*1000); // 6分以内の判定のみ採用
+  if (fresh){
+    const g = gatekeeper(candles); // 門番は手元の機械式を最優先
+    const veto = g.veto || sj.veto;
+    council = { votes: sj.votes, buy: sj.buy, sell: sj.sell,
+                veto, vetoReason: g.veto ? g.reason : sj.vetoReason,
+                verdict: veto ? "veto" : (sj.buy>=5 ? "buy" : (sj.sell>=5 ? "sell" : "wait")),
+                sonnet: true };
+  } else {
+    council = voteOn(candles); // 執事停止中はルール計算で続行
+  }
   renderCouncil();
   if (state.auto) autoExec();
 }
+
+// 執事(Sonnet)の判定を取り込む
+async function fetchSonnet(){
+  try{
+    const r = await fetch("council.json?t=" + Date.now(), {cache:"no-store"});
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d && d.ts && d.symbols){ sonnet = d; convene(); }
+  }catch(e){ /* file://やcouncil.json未設置時は無視 */ }
+}
+setInterval(fetchSonnet, 30000);
+fetchSonnet();
 
 function autoExec(){
   const v = council.verdict;
@@ -597,6 +621,7 @@ function renderCouncil(){
     txt.textContent = `${dispSym(symbol)} 様子見 (買${council.buy} / 売${council.sell} / 棄権${8-council.buy-council.sell})`;
     sub.textContent = "5票に届かず — 合意なし";
   }
+  sub.textContent += council.sonnet ? "　〔⚡Sonnet評議会〕" : "　〔ルール評議会(執事停止中)〕";
   $("gate").textContent = council.veto ? "遮断中" : "開門";
   $("gate").className = "st " + (council.veto ? "closed" : "open");
   const pos = getPos(symbol);
