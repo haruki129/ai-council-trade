@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI評議会トレード — 8賢人</title>
+<style>
+  :root{
+    --bg:#000000; --panel:#0d0b06; --panel2:#171307; --border:#3a2f12;
+    --gold:#d4af37; --gold2:#f5d878; --dim:#8a7a45;
+    --green:#16c784; --red:#ea3943; --blue:#3b82f6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI","Hiragino Sans","Meiryo",sans-serif}
+  body{background:var(--bg);color:var(--gold);min-height:100vh;padding:16px;
+       background-image:radial-gradient(ellipse at 50% -20%, #1a1505 0%, #000 60%)}
+  .wrap{max-width:1180px;margin:0 auto}
+
+  header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+         border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px}
+  .logo{font-size:20px;font-weight:700;color:var(--gold2);letter-spacing:2px}
+  .logo small{display:block;font-size:11px;color:var(--dim);letter-spacing:4px;font-weight:400}
+  .conn{font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);color:var(--dim)}
+  .conn.ok{color:var(--gold2);border-color:var(--gold)} .conn.ng{color:var(--red)}
+
+  .price-box{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  #price{font-size:46px;font-weight:700;letter-spacing:1px;color:var(--gold2);
+         text-shadow:0 0 24px rgba(212,175,55,.35);transition:text-shadow .2s}
+  #price.up{color:var(--green)} #price.down{color:var(--red)}
+  #change{font-size:16px;font-weight:600}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:14px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+  .panel h2{font-size:12px;color:var(--dim);font-weight:600;margin-bottom:10px;letter-spacing:3px}
+
+  #chart{width:100%;height:300px;display:block;border-radius:8px;background:#070502}
+
+  /* ===== 評議会 ===== */
+  .verdict{display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;
+           border:1px solid var(--border);background:var(--panel2);margin-bottom:12px}
+  .verdict .light{width:54px;height:54px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                  font-size:22px;font-weight:700;color:#000;background:#3a2f12}
+  .verdict.buy .light{background:var(--green);box-shadow:0 0 24px rgba(22,199,132,.5)}
+  .verdict.sell .light{background:var(--red);box-shadow:0 0 24px rgba(234,57,67,.5)}
+  .verdict.veto .light{background:#555;color:#ddd}
+  .verdict .t1{font-size:17px;font-weight:700;color:var(--gold2)}
+  .verdict .t2{font-size:12px;color:var(--dim);margin-top:2px}
+
+  .agents{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media(max-width:700px){.agents{grid-template-columns:repeat(2,1fr)}}
+  .agent{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:9px 10px}
+  .agent .nm{font-size:12px;font-weight:700;color:var(--gold2);white-space:nowrap}
+  .agent .rl{font-size:10px;color:var(--dim);margin:2px 0 6px;white-space:nowrap}
+  .agent .vt{font-size:13px;font-weight:700}
+  .agent .rs{font-size:10px;color:var(--dim);margin-top:2px;line-height:1.4;min-height:26px}
+  .vt.b{color:var(--green)} .vt.s{color:var(--red)} .vt.w{color:var(--dim)}
+
+  .gate{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:9px 12px;
+        border:1px dashed var(--border);border-radius:10px;font-size:12px}
+  .gate .st{font-weight:700} .gate .st.open{color:var(--green)} .gate .st.closed{color:var(--red)}
+
+  /* ===== 右パネル ===== */
+  .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #221b0a;font-size:14px}
+  .stat:last-child{border-bottom:none}
+  .stat .k{color:var(--dim)} .stat .v{font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold2)}
+  .stat .v.pos{color:var(--green)} .stat .v.neg{color:var(--red)}
+
+  .switch-row{display:flex;justify-content:space-between;align-items:center;padding:12px;
+              background:var(--panel2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .switch-row .lbl{font-size:14px;font-weight:700;color:var(--gold2)}
+  .switch-row .sub{font-size:11px;color:var(--dim);margin-top:2px}
+  .sw{position:relative;width:52px;height:28px;background:#221b0a;border:1px solid var(--border);
+      border-radius:20px;cursor:pointer;transition:background .2s;flex-shrink:0}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+             background:var(--dim);transition:all .2s}
+  .sw.on{background:var(--gold)} .sw.on::after{left:27px;background:#000}
+
+  .trade-btns{display:flex;gap:10px;margin-top:10px}
+  .btn{flex:1;padding:13px 0;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;color:#fff}
+  .btn:hover{filter:brightness(1.15)} .btn:disabled{opacity:.3;cursor:not-allowed}
+  .buy-b{background:var(--green)} .sell-b{background:var(--red)}
+  .follow{width:100%;padding:13px 0;margin-top:0;border:1px solid var(--gold);background:linear-gradient(180deg,#2a210a,#171307);
+          color:var(--gold2);border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:1px}
+  .follow:hover{background:#2a210a} .follow:disabled{opacity:.3;cursor:not-allowed}
+
+  .qty-row{display:flex;gap:6px;margin:10px 0}
+  .qty-row button{flex:1;padding:7px 0;background:var(--panel2);border:1px solid var(--border);
+                  color:var(--dim);border-radius:8px;cursor:pointer;font-size:13px}
+  .qty-row button:hover,.qty-row button.sel{border-color:var(--gold);color:var(--gold2)}
+
+  .reset{margin-top:12px;width:100%;padding:8px;background:none;border:1px solid var(--border);
+         color:var(--dim);border-radius:8px;cursor:pointer;font-size:12px}
+  .reset:hover{color:var(--red);border-color:var(--red)}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--dim);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:7px 8px;border-bottom:1px solid #221b0a;font-variant-numeric:tabular-nums;color:var(--gold2)}
+  tr:last-child td{border-bottom:none}
+  .tag{padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;color:#fff}
+  .tag.b{background:var(--green)} .tag.s{background:var(--red)}
+  .ai-mark{color:var(--gold);font-size:11px}
+  .empty{color:var(--dim);text-align:center;padding:18px;font-size:13px}
+
+  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--panel2);
+         border:1px solid var(--gold);padding:12px 26px;border-radius:10px;font-size:14px;font-weight:600;
+         color:var(--gold2);opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">&#9818; AI評議会トレード<small>EIGHT SAGES COUNCIL &mdash; DEMO</small></div>
+    <div class="conn" id="conn">接続中...</div>
+  </header>
+
+  <div class="price-box">
+    <div id="price">--,---</div>
+    <div id="change">--%</div>
+    <div style="font-size:12px;color:var(--dim)">BTC円換算 &mdash; Binanceリアル価格 / 資金は仮想¥30,000</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>評議会の判定 &mdash; 8人中5票で可決 + 門番veto</h2>
+        <div class="verdict" id="verdict">
+          <div class="light" id="vLight">--</div>
+          <div>
+            <div class="t1" id="vText">評議会 招集中...</div>
+            <div class="t2" id="vSub">価格データを収集しています</div>
+          </div>
+        </div>
+        <div class="agents" id="agents"></div>
+        <div class="gate">
+          <span>&#9876; 門番(機械式veto) &mdash; 急変動時は全執行を遮断</span>
+          <span class="st" id="gate">--</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>BTC/USDT 1分足</h2>
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="panel">
+        <h2>取引履歴 (★=評議会判断)</h2>
+        <div style="max-height:220px;overflow-y:auto">
+          <table>
+            <thead><tr><th>時刻</th><th>売買</th><th>数量(BTC)</th><th>価格</th><th>損益</th></tr></thead>
+            <tbody id="history"><tr><td colspan="5" class="empty">まだ取引がありません</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="switch-row">
+        <div>
+          <div class="lbl">自動運用</div>
+          <div class="sub">可決シグナルで自動執行(買:現金25% / 売:保有50%)</div>
+        </div>
+        <div class="sw" id="autoSw"></div>
+      </div>
+
+      <div class="panel">
+        <h2>口座状況</h2>
+        <div class="stat"><span class="k">現金残高</span><span class="v" id="cash">¥30,000</span></div>
+        <div class="stat"><span class="k">BTC保有量</span><span class="v" id="btcQty">0.000000</span></div>
+        <div class="stat"><span class="k">平均取得単価</span><span class="v" id="avgPrice">--</span></div>
+        <div class="stat"><span class="k">評価損益</span><span class="v" id="unrealized">--</span></div>
+        <div class="stat"><span class="k">確定損益(累計)</span><span class="v" id="realized">¥0</span></div>
+        <div class="stat"><span class="k">総資産</span><span class="v" id="equity">¥30,000</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>手動注文(成行)</h2>
+        <button class="follow" id="followBtn" disabled>評議会の判断に従う</button>
+        <div class="qty-row">
+          <button data-pct="25">25%</button>
+          <button data-pct="50">50%</button>
+          <button data-pct="75">75%</button>
+          <button data-pct="100">全額</button>
+        </div>
+        <div class="trade-btns">
+          <button class="btn buy-b" id="buyBtn" disabled>買う</button>
+          <button class="btn sell-b" id="sellBtn" disabled>売る</button>
+        </div>
+        <button class="reset" id="resetBtn">口座をリセット(¥30,000に戻す)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+// ================= 状態 =================
+const START_CASH = 30000; // 円
+let state = { cash: START_CASH, btc: 0, avg: 0, realized: 0, history: [], auto: false };
+let price = null, prevPrice = null, openPrice = null;
+let candles = [];
+let selPct = 25;
+let council = { votes: [], buy: 0, sell: 0, verdict: "wait", veto: false, vetoReason: "" };
+let lastAutoVerdict = "wait", lastAutoTime = 0;
+let fx = 155; // USD/JPY 換算レート(起動時に自動取得)
+
+try {
+  const saved = JSON.parse(localStorage.getItem("council_demo_jpy_v1"));
+  if (saved && typeof saved.cash === "number") state = Object.assign(state, saved);
+} catch(e) {}
+function save(){ try{ localStorage.setItem("council_demo_jpy_v1", JSON.stringify(state)); }catch(e){} }
+
+// ================= ユーティリティ =================
+const $ = id => document.getElementById(id);
+const fmt$ = n => (n<0?"-¥":"¥") + Math.abs(n).toLocaleString("ja-JP",{maximumFractionDigits:0});
+const fmtP = n => n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtMan = n => (n/10000).toLocaleString("ja-JP",{maximumFractionDigits:1}) + "万";
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h = setTimeout(()=>t.classList.remove("show"), 2400);
+}
+function sma(arr, n){ if(arr.length<n) return null; let s=0; for(let i=arr.length-n;i<arr.length;i++) s+=arr[i]; return s/n; }
+
+// ================= 8人のAI分析官 =================
+// 各分析官: {name, role, judge(closes,vols,candles) => {vote:"buy"|"sell"|"wait", reason}}
+const AGENTS = [
+  { name:"大局観の翁", role:"トレンド", judge:(c)=>{
+      const m = sma(c,40); if(m===null) return wait();
+      const p = c[c.length-1], d = (p-m)/m*100;
+      if (d > 0.08) return {vote:"buy", reason:`40分平均より上 (+${d.toFixed(2)}%)`};
+      if (d < -0.08) return {vote:"sell", reason:`40分平均より下 (${d.toFixed(2)}%)`};
+      return {vote:"wait", reason:"平均線の上で停滞"};
+  }},
+  { name:"勢いの狩人", role:"モメンタム", judge:(c)=>{
+      if (c.length<11) return wait();
+      const roc = (c[c.length-1]-c[c.length-11])/c[c.length-11]*100;
+      if (roc > 0.12) return {vote:"buy", reason:`10分で+${roc.toFixed(2)}% 上昇中`};
+      if (roc < -0.12) return {vote:"sell", reason:`10分で${roc.toFixed(2)}% 下落中`};
+      return {vote:"wait", reason:"勢いなし"};
+  }},
+  { name:"振り子の番人", role:"RSI", judge:(c)=>{
+      if (c.length<15) return wait();
+      let g=0,l=0;
+      for(let i=c.length-14;i<c.length;i++){ const d=c[i]-c[i-1]; if(d>0)g+=d; else l-=d; }
+      const rsi = l===0?100:100-100/(1+g/l);
+      if (rsi < 35) return {vote:"buy", reason:`RSI ${rsi.toFixed(0)} — 売られすぎ`};
+      if (rsi > 65) return {vote:"sell", reason:`RSI ${rsi.toFixed(0)} — 買われすぎ`};
+      return {vote:"wait", reason:`RSI ${rsi.toFixed(0)} — 中立圏`};
+  }},
+  { name:"出来高の目利き", role:"出来高", judge:(c,v)=>{
+      if (v.length<21) return wait();
+      const avg = sma(v.slice(0,-1),20), last = v[v.length-1];
+      if (avg===null || avg===0) return wait();
+      const r = last/avg, up = c[c.length-1] >= c[c.length-2];
+      if (r > 1.6) return up ? {vote:"buy", reason:`出来高${r.toFixed(1)}倍で上昇`} : {vote:"sell", reason:`出来高${r.toFixed(1)}倍で下落`};
+      return {vote:"wait", reason:"出来高は平常"};
+  }},
+  { name:"嵐の観測者", role:"ボラティリティ", judge:(c,v,k)=>{
+      if (k.length<15) return wait();
+      const rng = k.slice(-14).map(x=>(x.h-x.l)/x.l*100);
+      const a = rng.reduce((s,x)=>s+x,0)/rng.length;
+      if (a > 0.35) return {vote:"sell", reason:`荒れ相場 (平均値幅${a.toFixed(2)}%)`};
+      if (a < 0.10) return {vote:"wait", reason:"凪 — 仕掛け待ち"};
+      return c[c.length-1]>c[c.length-5] ? {vote:"buy", reason:"穏やかな上げ潮"} : {vote:"wait", reason:"方向感なし"};
+  }},
+  { name:"交差の剣士", role:"MA交差", judge:(c)=>{
+      const f = sma(c,7), s = sma(c,25);
+      if (f===null||s===null) return wait();
+      const pf = sma(c.slice(0,-1),7), ps = sma(c.slice(0,-1),25);
+      if (pf<=ps && f>s) return {vote:"buy", reason:"短期線が長期線を上抜け"};
+      if (pf>=ps && f<s) return {vote:"sell", reason:"短期線が長期線を下抜け"};
+      return f>s ? {vote:"buy", reason:"短期線が上位を維持"} : {vote:"sell", reason:"短期線が下位を維持"};
+  }},
+  { name:"地形の測量士", role:"高値安値", judge:(c,v,k)=>{
+      if (k.length<30) return wait();
+      const w = k.slice(-30);
+      const hi = Math.max(...w.map(x=>x.h)), lo = Math.min(...w.map(x=>x.l));
+      if (hi===lo) return wait();
+      const pos = (c[c.length-1]-lo)/(hi-lo)*100;
+      if (pos < 25) return {vote:"buy", reason:`直近30分の安値圏 (${pos.toFixed(0)}%)`};
+      if (pos > 75) return {vote:"sell", reason:`直近30分の高値圏 (${pos.toFixed(0)}%)`};
+      return {vote:"wait", reason:`レンジ中央 (${pos.toFixed(0)}%)`};
+  }},
+  { name:"天邪鬼の賢者", role:"逆張り", judge:(c)=>{
+      if (c.length<30) return wait();
+      const w = c.slice(-30), m = w.reduce((s,x)=>s+x,0)/w.length;
+      const sd = Math.sqrt(w.reduce((s,x)=>s+(x-m)*(x-m),0)/w.length);
+      if (sd===0) return wait();
+      const z = (c[c.length-1]-m)/sd;
+      if (z < -1.5) return {vote:"buy", reason:`平均から${z.toFixed(1)}σ下 — 行き過ぎ`};
+      if (z > 1.5) return {vote:"sell", reason:`平均から+${z.toFixed(1)}σ上 — 行き過ぎ`};
+      return {vote:"wait", reason:"統計的に正常圏"};
+  }},
+];
+function wait(){ return {vote:"wait", reason:"データ収集中"}; }
+
+// 門番(機械式veto): 急変動時は執行禁止
+function gatekeeper(k){
+  if (k.length<6) return {veto:true, reason:"データ不足"};
+  const last = k[k.length-1];
+  const r1 = (last.h-last.l)/last.l*100;
+  if (r1 > 1.0) return {veto:true, reason:`直近1分の値幅${r1.toFixed(2)}%`};
+  const m5 = Math.abs(k[k.length-1].c - k[k.length-6].c)/k[k.length-6].c*100;
+  if (m5 > 2.0) return {veto:true, reason:`5分間で${m5.toFixed(2)}%急変`};
+  return {veto:false, reason:""};
+}
+
+// ================= 評議会の招集 =================
+function convene(){
+  if (candles.length < 5) return;
+  const closes = candles.map(c=>c.c);
+  const vols = candles.map(c=>c.v||0);
+  council.votes = AGENTS.map(a => Object.assign({name:a.name, role:a.role}, a.judge(closes, vols, candles)));
+  council.buy  = council.votes.filter(x=>x.vote==="buy").length;
+  council.sell = council.votes.filter(x=>x.vote==="sell").length;
+  const g = gatekeeper(candles);
+  council.veto = g.veto; council.vetoReason = g.reason;
+  council.verdict = g.veto ? "veto" : (council.buy>=5 ? "buy" : (council.sell>=5 ? "sell" : "wait"));
+  renderCouncil();
+  if (state.auto) autoExec();
+}
+
+function autoExec(){
+  const v = council.verdict;
+  if (v !== "buy" && v !== "sell"){ lastAutoVerdict = v; return; }
+  const now = Date.now();
+  if (v === lastAutoVerdict || now - lastAutoTime < 60000) return; // 同一シグナル連発・60秒以内は禁止
+  lastAutoVerdict = v; lastAutoTime = now;
+  if (v === "buy"){
+    const yen = state.cash * 0.25;
+    if (yen >= 100) doBuy(yen, true);
+  } else {
+    const qty = state.btc * 0.5;
+    if (qty > 0) doSell(qty, true);
+  }
+}
+
+// ================= 売買 =================
+function nowStr(){
+  const d = new Date();
+  return d.toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"}) + " " +
+         d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+}
+function doBuy(yen, ai){
+  if (!price || yen > state.cash + 1e-9 || yen < 100) return false;
+  const pj = price * fx; // BTC1枚の円価格
+  const qty = yen / pj;
+  state.avg = state.btc > 0 ? (state.avg*state.btc + yen)/(state.btc+qty) : pj;
+  state.btc += qty; state.cash -= yen;
+  state.history.push({time:nowStr(), side:"買", qty, price:pj, pnl:null, ai:!!ai});
+  save(); render(); renderHistory();
+  toast((ai?"★評議会 ":"")+`買い約定: ${qty.toFixed(6)} BTC @ ${fmt$(pj)}`);
+  return true;
+}
+function doSell(qty, ai){
+  if (!price || state.btc <= 0) return false;
+  if (qty > state.btc) qty = state.btc;
+  if (qty <= 0) return false;
+  const pj = price * fx;
+  const pnl = (pj - state.avg) * qty;
+  state.realized += pnl; state.cash += qty*pj; state.btc -= qty;
+  if (state.btc < 1e-9){ state.btc = 0; state.avg = 0; }
+  state.history.push({time:nowStr(), side:"売", qty, price:pj, pnl, ai:!!ai});
+  save(); render(); renderHistory();
+  toast((ai?"★評議会 ":"")+`売り約定 @ ${fmt$(pj)} (損益 ${pnl>=0?"+":""}${fmt$(pnl)})`);
+  return true;
+}
+
+$("buyBtn").onclick = () => {
+  const yen = state.cash * selPct/100;
+  if (!doBuy(yen, false)) toast("現金が足りません(最低¥100)");
+};
+$("sellBtn").onclick = () => {
+  const qty = state.btc * selPct/100;
+  if (!doSell(qty, false)) toast("保有BTCがありません");
+};
+$("followBtn").onclick = () => {
+  if (council.verdict === "buy") doBuy(state.cash*0.25, true);
+  else if (council.verdict === "sell") doSell(state.btc*0.5, true);
+};
+$("resetBtn").onclick = () => {
+  if (!confirm("口座をリセットして ¥30,000 に戻します。よろしいですか?")) return;
+  const auto = state.auto;
+  state = { cash: START_CASH, btc: 0, avg: 0, realized: 0, history: [], auto };
+  save(); render(); renderHistory(); toast("リセットしました");
+};
+$("autoSw").onclick = () => {
+  state.auto = !state.auto;
+  $("autoSw").classList.toggle("on", state.auto);
+  lastAutoVerdict = council.verdict; // ON直後の即発注を防ぐ
+  save();
+  toast(state.auto ? "自動運用 ON — 評議会が可決したら自動執行します" : "自動運用 OFF");
+};
+document.querySelectorAll(".qty-row button").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".qty-row button").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel"); selPct = parseInt(b.dataset.pct);
+  };
+});
+document.querySelector('.qty-row button[data-pct="25"]').classList.add("sel");
+
+// ================= 画面更新 =================
+function render(){
+  if (price !== null){
+    const el = $("price"); el.textContent = fmt$(price*fx);
+    if (prevPrice !== null && price !== prevPrice) el.className = price > prevPrice ? "up" : "down";
+    if (openPrice){
+      const ch = (price-openPrice)/openPrice*100;
+      const c = $("change");
+      c.textContent = (ch>=0?"+":"")+ch.toFixed(2)+"% (24h)";
+      c.className = ch>=0?"pos":"neg";
+    }
+  }
+  $("cash").textContent = fmt$(state.cash);
+  $("btcQty").textContent = state.btc.toFixed(6);
+  $("avgPrice").textContent = state.btc>0 ? fmt$(state.avg) : "--";
+  $("realized").textContent = fmt$(state.realized);
+  $("realized").className = "v " + (state.realized>=0?"pos":"neg");
+  if (state.btc>0 && price){
+    const u = (price*fx-state.avg)*state.btc;
+    $("unrealized").textContent = (u>=0?"+":"")+fmt$(u);
+    $("unrealized").className = "v " + (u>=0?"pos":"neg");
+  } else { $("unrealized").textContent="--"; $("unrealized").className="v"; }
+  const eq = state.cash + (price ? state.btc*price*fx : 0);
+  $("equity").textContent = fmt$(eq);
+  $("equity").className = "v " + (eq>=START_CASH?"pos":"neg");
+  $("buyBtn").disabled = !price;
+  $("sellBtn").disabled = !price || state.btc<=0;
+  $("autoSw").classList.toggle("on", state.auto);
+}
+
+function renderCouncil(){
+  const box = $("agents");
+  box.innerHTML = council.votes.map(v => `
+    <div class="agent">
+      <div class="nm">${v.name}</div>
+      <div class="rl">${v.role}</div>
+      <div class="vt ${v.vote==="buy"?"b":v.vote==="sell"?"s":"w"}">${v.vote==="buy"?"買い":v.vote==="sell"?"売り":"様子見"}</div>
+      <div class="rs">${v.reason}</div>
+    </div>`).join("");
+
+  const vd = $("verdict"), light = $("vLight"), txt = $("vText"), sub = $("vSub");
+  vd.className = "verdict";
+  if (council.verdict === "veto"){
+    vd.classList.add("veto"); light.textContent = "止";
+    txt.textContent = "門番がveto — 全執行停止";
+    sub.textContent = council.vetoReason + " のため見送り";
+  } else if (council.verdict === "buy"){
+    vd.classList.add("buy"); light.textContent = "買";
+    txt.textContent = `買いシグナル可決 (${council.buy}/8票)`;
+    sub.textContent = "評議会は買いを支持しています";
+  } else if (council.verdict === "sell"){
+    vd.classList.add("sell"); light.textContent = "売";
+    txt.textContent = `売りシグナル可決 (${council.sell}/8票)`;
+    sub.textContent = "評議会は売りを支持しています";
+  } else {
+    light.textContent = "待";
+    txt.textContent = `様子見 (買${council.buy} / 売${council.sell} / 棄権${8-council.buy-council.sell})`;
+    sub.textContent = "5票に届かず — 合意なし";
+  }
+  $("gate").textContent = council.veto ? "遮断中" : "開門";
+  $("gate").className = "st " + (council.veto ? "closed" : "open");
+  $("followBtn").disabled = !(council.verdict==="buy" || (council.verdict==="sell" && state.btc>0));
+  $("followBtn").textContent =
+    council.verdict==="buy" ? "評議会に従う → 現金の25%で買う" :
+    council.verdict==="sell" ? "評議会に従う → 保有の50%を売る" : "評議会の判断に従う(可決待ち)";
+}
+
+function renderHistory(){
+  const tb = $("history");
+  if (!state.history.length){
+    tb.innerHTML = '<tr><td colspan="5" class="empty">まだ取引がありません</td></tr>'; return;
+  }
+  tb.innerHTML = state.history.slice().reverse().map(h => `
+    <tr>
+      <td>${h.ai?'<span class="ai-mark">★</span>':""}${h.time}</td>
+      <td><span class="tag ${h.side==="買"?"b":"s"}">${h.side}</span></td>
+      <td>${h.qty.toFixed(6)}</td>
+      <td>${fmt$(h.price)}</td>
+      <td class="${h.pnl===null?"":(h.pnl>=0?"pos":"neg")}">${h.pnl===null?"--":(h.pnl>=0?"+":"")+fmt$(h.pnl)}</td>
+    </tr>`).join("");
+}
+
+// ================= チャート =================
+const canvas = $("chart"), ctx = canvas.getContext("2d");
+function drawChart(){
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (canvas.width !== W*dpr){ canvas.width=W*dpr; canvas.height=H*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  if (candles.length<2) return;
+  const view = candles.slice(-70);
+  const padR=64, padT=14, padB=10;
+  let lo=Infinity, hi=-Infinity;
+  view.forEach(c=>{lo=Math.min(lo,c.l);hi=Math.max(hi,c.h);});
+  const range=(hi-lo)||1;
+  const y=p=>padT+(hi-p)/range*(H-padT-padB);
+  const cw=(W-padR)/view.length;
+  ctx.font="11px Segoe UI"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const p=hi-range*i/4, yy=y(p);
+    ctx.strokeStyle="#1d1708"; ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke();
+    ctx.fillStyle="#8a7a45"; ctx.fillText(fmtMan(p*fx), W-padR+6, yy+4);
+  }
+  view.forEach((c,i)=>{
+    const x=i*cw+cw/2, up=c.c>=c.o;
+    ctx.strokeStyle=ctx.fillStyle = up?"#16c784":"#ea3943";
+    ctx.beginPath(); ctx.moveTo(x,y(c.h)); ctx.lineTo(x,y(c.l)); ctx.stroke();
+    const bw=Math.max(cw*0.6,2), yo=y(c.o), yc=y(c.c);
+    ctx.fillRect(x-bw/2, Math.min(yo,yc), bw, Math.max(Math.abs(yc-yo),1));
+  });
+  if (price){
+    const yy=y(Math.min(Math.max(price,lo),hi));
+    ctx.strokeStyle="#d4af37"; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="#f5d878"; ctx.fillText(fmtMan(price*fx), W-padR+6, yy-6);
+  }
+  if (state.btc>0 && state.avg/fx>=lo && state.avg/fx<=hi){
+    const yy=y(state.avg/fx);
+    ctx.strokeStyle="#3b82f6"; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.moveTo(0,yy); ctx.lineTo(W-padR,yy); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+window.addEventListener("resize", drawChart);
+
+// ================= データ取得 (Binance) =================
+const conn = $("conn");
+function setConn(ok,msg){ conn.textContent=msg; conn.className="conn "+(ok?"ok":"ng"); }
+
+async function loadFx(){
+  try{
+    const r = await fetch("https://open.er-api.com/v6/latest/USD");
+    const d = await r.json();
+    if (d && d.rates && d.rates.JPY > 0) fx = d.rates.JPY;
+  }catch(e){ /* 取得失敗時は155円固定のまま */ }
+  render(); drawChart();
+}
+setInterval(loadFx, 3600000); // 1時間ごとに更新
+
+async function loadInitial(){
+  try{
+    const [kr,tr] = await Promise.all([
+      fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=120"),
+      fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT")
+    ]);
+    const ks=await kr.json(), t=await tr.json();
+    candles = ks.map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]}));
+    openPrice=+t.openPrice; price=+t.lastPrice;
+    render(); drawChart(); convene();
+  }catch(e){ setConn(false,"初期データ取得失敗 — 再試行中"); setTimeout(loadInitial,5000); }
+}
+
+let ws=null, pollTimer=null, lastConvene=0;
+function startWS(){
+  try{ ws=new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@kline_1m"); }
+  catch(e){ startPolling(); return; }
+  ws.onopen=()=>{ setConn(true,"● ライブ接続中"); stopPolling(); };
+  ws.onmessage=ev=>{
+    const m=JSON.parse(ev.data); if(!m.k) return;
+    const k=m.k;
+    prevPrice=price; price=+k.c;
+    const nc={t:k.t,o:+k.o,h:+k.h,l:+k.l,c:+k.c,v:+k.v};
+    if(candles.length && candles[candles.length-1].t===k.t) candles[candles.length-1]=nc;
+    else { candles.push(nc); if(candles.length>300) candles.shift(); }
+    render(); drawChart();
+    const now=Date.now();
+    if (now-lastConvene>5000){ lastConvene=now; convene(); } // 5秒ごとに評議会再招集
+  };
+  ws.onclose=ws.onerror=()=>{
+    setConn(false,"再接続中...");
+    startPolling();
+    setTimeout(startWS,5000);
+  };
+}
+function startPolling(){
+  if(pollTimer) return;
+  pollTimer=setInterval(async()=>{
+    try{
+      const r=await fetch("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=2");
+      const ks=await r.json();
+      ks.forEach(k=>{
+        const nc={t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]};
+        if(candles.length && candles[candles.length-1].t===nc.t) candles[candles.length-1]=nc;
+        else if(!candles.length || nc.t>candles[candles.length-1].t){ candles.push(nc); if(candles.length>300) candles.shift(); }
+      });
+      prevPrice=price; price=candles[candles.length-1].c;
+      setConn(true,"● 接続中(3秒更新)");
+      render(); drawChart(); convene();
+    }catch(e){ setConn(false,"接続できません"); }
+  },3000);
+}
+function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+
+setInterval(async()=>{
+  try{
+    const r=await fetch("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT");
+    const t=await r.json(); openPrice=+t.openPrice;
+  }catch(e){}
+},60000);
+
+// ================= 起動 =================
+render(); renderHistory();
+loadFx();
+loadInitial().then(startWS);
+</script>
+</body>
+</html>
